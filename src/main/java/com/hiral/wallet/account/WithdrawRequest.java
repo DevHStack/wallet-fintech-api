@@ -9,7 +9,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class DepositRequest {
+public class WithdrawRequest {
 
     @NotNull(message = "amount is required")
     @DecimalMin(value = "0.0001", message = "amount must be positive")
