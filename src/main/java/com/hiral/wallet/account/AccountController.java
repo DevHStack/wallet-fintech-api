@@ -6,6 +6,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import com.hiral.wallet.idempotency.IdempotencyService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.security.Principal;
 
@@ -13,18 +18,33 @@ import java.security.Principal;
 @RequestMapping("/api/accounts")
 @Validated
 @RequiredArgsConstructor
+@Tag(name = "Accounts", description = "Account management operations")
+@SecurityRequirement(name = "bearer-jwt")
 public class AccountController {
 
     private final AccountService accountService;
     private final IdempotencyService idempotencyService;
 
     @PostMapping
+    @Operation(summary = "Create a new account", description = "Creates a new wallet account for the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Account created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<Account> createAccount(Principal principal, @Valid @RequestBody CreateAccountRequest request) {
         Account created = accountService.createAccount(principal.getName(), request.getOwnerName(), request.getCurrency());
         return ResponseEntity.status(201).body(created);
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get account details", description = "Retrieves the account details for the specified ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Account found"),
+            @ApiResponse(responseCode = "403", description = "Access denied - account does not belong to user"),
+            @ApiResponse(responseCode = "404", description = "Account not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<Account> getAccount(Principal principal, @PathVariable Long id) {
         Account account = accountService.getAccount(id);
         if (!account.getOwnerId().equals(principal.getName())) {
@@ -34,6 +54,14 @@ public class AccountController {
     }
 
     @PostMapping("/{id}/deposit")
+    @Operation(summary = "Deposit funds", description = "Deposits funds into the specified account. Use Idempotency-Key header to ensure idempotent requests")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Deposit successful"),
+            @ApiResponse(responseCode = "400", description = "Invalid deposit amount"),
+            @ApiResponse(responseCode = "403", description = "Access denied"),
+            @ApiResponse(responseCode = "404", description = "Account not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<Account> deposit(
             Principal principal,
             @PathVariable Long id,
@@ -52,6 +80,14 @@ public class AccountController {
     }
 
     @PostMapping("/{id}/withdraw")
+    @Operation(summary = "Withdraw funds", description = "Withdraws funds from the specified account. Use Idempotency-Key header to ensure idempotent requests")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Withdrawal successful"),
+            @ApiResponse(responseCode = "400", description = "Invalid withdrawal amount or insufficient funds"),
+            @ApiResponse(responseCode = "403", description = "Access denied"),
+            @ApiResponse(responseCode = "404", description = "Account not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<Account> withdraw(
             Principal principal,
             @PathVariable Long id,
@@ -70,6 +106,14 @@ public class AccountController {
     }
 
     @PostMapping("/transfer")
+    @Operation(summary = "Transfer funds between accounts", description = "Transfers funds from one account to another. Both accounts must belong to the authenticated user. Use Idempotency-Key header to ensure idempotent requests")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Transfer successful"),
+            @ApiResponse(responseCode = "400", description = "Invalid transfer amount or insufficient funds"),
+            @ApiResponse(responseCode = "403", description = "Access denied"),
+            @ApiResponse(responseCode = "404", description = "Account not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     public ResponseEntity<Void> transfer(
             Principal principal,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
